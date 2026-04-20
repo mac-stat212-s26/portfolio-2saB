@@ -1,0 +1,123 @@
+---
+title: "HW1-TT Wk4"
+---
+
+# TidyTuesday Section
+
+Explore the week’s [TidyTuesday](https://github.com/rfordatascience/tidytuesday) challenge.
+Develop a research question, then answer it through a short data story with [effective visualization(s)](https://docs.google.com/presentation/d/1iLW9T5086uUJQqOnXkgMfVvlj76TDOKHIvO6KRkxwdc/preview?slide=id.g3bc543428a0_0_5#slide=id.g3bc543428a0_0_5).
+Provide sufficient background for readers to grasp your narrative.
+
+## Introduction
+
+This week (4) the TidyTuesday community explores **Brazilian Companies**, curated from Brazil’s open **CNPJ (Cadastro Nacional da Pessoa Jurídica)** records published by the **Brazilian Ministry of Finance / Receita Federal** on the national open-data portal ([dados.gov.br](#0)).
+I will be taking time to explore this personally to understand the relationship between capital stock, company size and legal nature.
+
+## Research Question
+
+Do certain legal structures tend to have higher capital reserves, and does this relationship differ by company size?
+
+## Data Import and Cleaning
+
+```{r}
+library(tidyverse)
+library(tidytuesdayR)
+library(ggridges)
+library(scales)
+```
+
+```{r}
+tuesdata <- tidytuesdayR::tt_load(2026, week = 4)
+
+companies <- tuesdata$companies
+legal_nature <- tuesdata$legal_nature
+qualifications <- tuesdata$qualifications
+size <- tuesdata$size
+
+```
+
+```{r}
+#View(legal_nature)
+```
+
+## Visualizations
+
+```{r}
+# Data Exploration
+companies %>%
+  summarise(
+    min_capital = min(capital_stock, na.rm = TRUE),
+    median_capital = median(capital_stock, na.rm = TRUE),
+    mean_capital = mean(capital_stock, na.rm = TRUE),
+    max_capital = max(capital_stock, na.rm = TRUE),
+    n_rows = n()
+  )
+
+# Checking by group in arranged order for an organised visual understanding
+companies %>%
+  count(company_size) %>% arrange(desc(n))
+companies %>%
+  count(legal_nature) %>% arrange(desc(n))
+```
+```{r}
+# Checking for missing values and data exploration
+companies %>% summarise(across(everything(), ~sum(is.na(.))))
+
+legal_nature_top10 <- companies %>%
+  count(legal_nature) %>%
+  top_n(10, n) %>%
+  pull(legal_nature)
+
+companies_filtered <- companies %>%
+  filter(legal_nature %in% legal_nature_top10)
+```
+
+
+```{r}
+companies %>%
+  filter(capital_stock > 0) %>%
+  group_by(company_size, legal_nature) %>%
+  summarise(
+    median_capital = median(capital_stock, na.rm = TRUE),
+    n_companies = n(),
+    .groups = "drop"
+  ) %>%
+  filter(n_companies > 100) %>% # Only show categories with sufficient data
+  ggplot(aes(x = company_size, y = log10(median_capital), fill = legal_nature)) +
+  geom_col(position = "dodge2") +
+  scale_fill_viridis_d(option = "plasma") +
+  scale_y_continuous(labels = label_number(scale = 1)) +
+  labs(
+    title = "Median Capital Stock by Company Size and Legal Nature",
+    subtitle = "Only showing categories with >100 companies",
+    x = "Company Size",
+    y = "Median Capital Stock (log10)",
+    fill = "Legal Nature",
+    caption = "Source: dados.gov.br CNPJ data"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.text = element_text(size = 8),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+
+## Conclusions
+
+### What Defines a Capital-Rich Company in Brazil?
+
+Brazil's CNPJ registry contains over 5 million companies, yet capital stock is concentrated in patterns that reflect legal structure more than administrative size labels. By examining median capital reserves across legal forms and size categories, we can reveal which organizational designs actually attract sustained investment.
+
+### Does Company Size Predict Capital Reserves?
+
+Surprisingly, the relationship is weak. Our visualization shows that "micro-enterprises" in certain legal categories can out-capitalize "large companies" in others, suggesting Brazil's administrative size classifications (based on revenue thresholds) don't align with declared share capital. The Institutional Finance Companies, for instance, maintain substantial median capital even when classified as micro-enterprises, while many "large" Civil Companies under Associations have minimal capital reserves. Size matters, but only within specific legal frameworks.
+
+### Legal Structure is the True Differentiator
+
+Limited Liability Business Companies dominate high-capital positions across all size tiers, showing median reserves 10-100x higher than less formal structures like Individual Businesses or Civil Companies. This pattern holds consistently when we isolate micro-enterprises alone, Limited Liability companies still cluster at the top, while Individual Businesses cluster at the bottom. The legal form acts as a signal to investors and creditors about liability protection, governance standards, and growth potential.
+
+### What This Means for Brazilian Entrepreneurship
+
+Access to capital isn't just about having a good idea—it's about choosing the right legal container. The data suggests that entrepreneurs who opt for more formalized structures (Limited Liability, Corporations) unlock fundamentally different capital-raising capabilities, even at identical size classifications. For policymakers, this implies that support programs targeting "micro-enterprises" may miss a crucial variable: legal form could be a stronger predictor of capital accumulation than traditional size metrics. For founders, the choice of legal nature isn't administrative trivia—it's a strategic decision that gates access to the financial resources needed for scaling.
