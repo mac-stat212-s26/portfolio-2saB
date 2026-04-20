@@ -303,7 +303,7 @@ library(dplyr)
 
 weather %>%
   mutate(date = as.Date(date),
-         year = format(date, "%Y")) 
+         year = format(date, "%Y")) -> weather2
   # select(Record = TRUE)     -> weather2
 
 ggplot(weather2, aes(x = dateInYear, y = CulmPrec, group = year)) +
